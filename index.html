@@ -74,7 +74,12 @@ label.chk input { accent-color: var(--accent) }
 .big-tr { font-size: 1.55rem; color: var(--accent); font-weight: 600 }
 .meaning { font-family: var(--font-head); font-size: 1.25rem; font-weight: 500; text-wrap: balance }
 .note { font-size: .85rem; color: var(--muted); max-width: 44ch; text-wrap: pretty }
-.speak { position: absolute; top: 8px; right: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; width: 38px; height: 38px; cursor: pointer; font-size: 1rem; display: grid; place-items: center }
+.speak { position: absolute; top: 10px; right: 10px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); border-radius: 999px; width: 44px; height: 44px; cursor: pointer; display: grid; place-items: center; padding: 0 }
+.speak svg { width: 20px; height: 20px }
+.speak.playing { background: var(--accent); color: var(--accent-ink) }
+.speak.inline { position: static; width: 34px; height: 34px; flex: none }
+.speak.inline svg { width: 16px; height: 16px }
+td.say { width: 1%; padding-right: 0 }
 
 .row-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
 .btn { font: 600 .95rem var(--font-body); padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer }
@@ -151,6 +156,8 @@ td .k { color: var(--good); font-size: .75rem; font-weight: 600 }
       </select>
       <label class="chk"><input type="checkbox" id="c-showtr"> Okunuşu ön yüzde göster</label>
       <label class="chk"><input type="checkbox" id="c-onlynew"> Sadece bilmediklerim</label>
+      <label class="chk"><input type="checkbox" id="c-auto"> Kartı otomatik seslendir</label>
+      <label class="chk"><input type="checkbox" id="c-slow"> Yavaş oku</label>
     </div>
     <div style="height:14px"></div>
     <div id="c-area"></div>
@@ -191,7 +198,7 @@ td .k { color: var(--good); font-size: .75rem; font-weight: 600 }
   <!-- SÖZLÜK -->
   <section id="tab-list" data-panel="list" hidden style="display:flex;flex-direction:column;gap:12px">
     <input type="search" id="l-q" placeholder="Ara: Türkçe, okunuş ya da Farsça…" aria-label="Sözlükte ara">
-    <div class="tbl-wrap"><table><thead><tr><th>Farsça</th><th>Okunuş</th><th>Anlamı</th></tr></thead><tbody id="l-body"></tbody></table></div>
+    <div class="tbl-wrap"><table><thead><tr><th></th><th>Farsça</th><th>Okunuş</th><th>Anlamı</th></tr></thead><tbody id="l-body"></tbody></table></div>
   </section>
 
   <!-- REHBER -->
@@ -442,13 +449,30 @@ function updateStat(){
   $("#stat").textContent = k + " / " + ALL.length + " kart öğrenildi";
 }
 
-// ---- speech (only if the device has a Persian voice) ----
+// ---- audio: recorded clips in audio/<fnv>.mp3, device voice as fallback ----
+function fnv(t){ let h = 0x811c9dc5; for (const ch of t){ h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; } return ("0000000" + h.toString(16)).slice(-8); }
 let faVoice = null;
 function findVoice(){ try { const v = speechSynthesis.getVoices(); faVoice = v.find(x => /^fa/i.test(x.lang)) || null; } catch(e){ faVoice = null; } }
-try { findVoice(); speechSynthesis.addEventListener("voiceschanged", () => { findVoice(); if (tab==="cards") renderCard(); }); } catch(e){}
-function speak(text){ if (!faVoice) return; try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.voice = faVoice; u.lang = faVoice.lang; u.rate = .8; speechSynthesis.speak(u); } catch(e){} }
-function speakBtn(text){ return faVoice ? '<button class="speak" type="button" data-say="'+esc(text)+'" aria-label="Sesli dinle" title="Sesli dinle">🔊</button>' : ""; }
-document.addEventListener("click", e => { const b = e.target.closest("[data-say]"); if (b){ e.stopPropagation(); speak(b.dataset.say); } }, true);
+try { findVoice(); speechSynthesis.addEventListener("voiceschanged", findVoice); } catch(e){}
+const player = new Audio(); player.preload = "auto";
+let playingBtn = null;
+function setPlaying(b){ if (playingBtn) playingBtn.classList.remove("playing"); playingBtn = b || null; if (playingBtn) playingBtn.classList.add("playing"); }
+player.addEventListener("ended", () => setPlaying(null));
+player.addEventListener("pause", () => setPlaying(null));
+function deviceSpeak(text){ if (!faVoice) return false; try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.voice = faVoice; u.lang = faVoice.lang; u.rate = $("#c-slow").checked ? .6 : .85; speechSynthesis.speak(u); return true; } catch(e){ return false; } }
+function speak(text, btn){
+  const slow = $("#c-slow").checked;
+  try { player.pause(); } catch(e){}
+  player.src = "audio/" + fnv(text) + ".mp3";
+  player.playbackRate = slow ? .75 : 1;
+  try { player.preservesPitch = true; } catch(e){}
+  const p = player.play();
+  setPlaying(btn);
+  if (p && p.catch) p.catch(() => { setPlaying(null); deviceSpeak(text); });
+}
+const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+function speakBtn(text, inline){ return '<button class="speak'+(inline?" inline":"")+'" type="button" data-say="'+esc(text)+'" aria-label="Sesli dinle" title="Sesli dinle">'+ICON+'</button>'; }
+document.addEventListener("click", e => { const b = e.target.closest("[data-say]"); if (b){ e.stopPropagation(); e.preventDefault(); speak(b.dataset.say, b); } }, true);
 
 // ---- tabs ----
 let tab = "cards";
@@ -471,6 +495,11 @@ $("#c-cat").value = st.cat || "selam";
 $("#c-dir").value = st.dir || "fa";
 $("#c-showtr").checked = st.showTr !== undefined ? st.showTr : true;
 $("#c-onlynew").checked = !!st.onlyNew;
+$("#c-auto").checked = !!st.auto;
+$("#c-slow").checked = !!st.slow;
+$("#c-auto").addEventListener("change", () => { st.auto = $("#c-auto").checked; save(); });
+$("#c-slow").addEventListener("change", () => { st.slow = $("#c-slow").checked; save(); });
+let userActed = false;
 $("#q-cat").value = st.qcat || "all";
 $("#q-mode").value = st.qmode || "meaning";
 
@@ -516,10 +545,14 @@ function renderCard(){
     +   '<button class="btn know" id="b-know" type="button">✓ Biliyorum</button>'
     + '</div>';
   $("#card").onclick = flip;
+  if (st.auto && userActed && dirFa && !flipped) speak(w.fa, $("#card .front .speak"));
   $("#b-again").onclick = again;
   $("#b-know").onclick = know;
 }
-function flip(){ flipped = !flipped; const c = $("#card"); if (c) c.classList.toggle("flipped", flipped); }
+function flip(){ flipped = !flipped; const c = $("#card"); if (c) c.classList.toggle("flipped", flipped);
+  if (flipped && st.auto && st.dir === "tr" && deck.length) speak(deck[0].fa, $("#card .back .speak")); }
+document.addEventListener("pointerdown", () => { userActed = true; }, {capture:true, once:true});
+document.addEventListener("keydown", () => { userActed = true; }, {capture:true, once:true});
 function again(){
   const w = deck.shift(); delete store.known[w.id]; save();
   deck.splice(Math.min(deck.length, 3 + Math.floor(Math.random()*3)), 0, w);
@@ -558,7 +591,7 @@ function renderQuiz(){
     ? '<div class="meaning" style="font-size:1.5rem">'+esc(w.m)+'</div><div class="muted">Hangisi?</div>'
     : '<div class="big-fa" lang="fa">'+esc(w.fa)+'</div><div class="muted">'+(field==="m" ? "Bu ne demek?" : "Nasıl okunur?")+'</div>';
   $("#q-area").innerHTML =
-    '<div class="q">'+speakBtn(w.fa)+prompt+'</div>'
+    '<div class="q">'+(field==="m" ? speakBtn(w.fa) : "")+prompt+'</div>'
     + '<div class="opts">' + opts.map((o,i) => '<button type="button" class="opt'+(field==="fa"?" fa-opt":"")+'" data-i="'+i+'"'+(field==="fa"?' lang="fa"':"")+'>'+esc(o[field])+'</button>').join("") + '</div>'
     + '<div class="feedback" id="q-fb"></div>'
     + '<button class="btn primary" id="q-next" type="button" disabled>Sonraki soru →</button>';
@@ -573,6 +606,8 @@ function answer(i){
     + '<span class="fa" lang="fa">'+esc(w.fa)+'</span> = <span class="tr">'+esc(w.tr)+'</span>: '+esc(w.m);
   $("#q-score").textContent = "Doğru: "+qRight+" / "+qTotal;
   $("#q-next").disabled = false; $("#q-next").focus();
+  if (!$(".q .speak")) $(".q").insertAdjacentHTML("afterbegin", speakBtn(w.fa));
+  speak(w.fa, $(".q .speak"));
 }
 
 // ---- alphabet ----
@@ -596,7 +631,7 @@ function renderLetter(){
     +   f(nj ? "—" : ZWJ+ch+ZWJ, "ortada", nj)
     +   f(ZWJ+ch, "sonda")
     + '</div>'
-    + '<div>Örnek: <span class="fa" lang="fa" style="font-size:1.5rem">'+highlight(ex[0], ch)+'</span> <span class="tr">'+esc(ex[1])+'</span> — '+esc(ex[2])+'</div>'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+speakBtn(ex[0], true)+'<span>Örnek: <span class="fa" lang="fa" style="font-size:1.5rem">'+highlight(ex[0], ch)+'</span> <span class="tr">'+esc(ex[1])+'</span> — '+esc(ex[2])+'</span></div>'
     + '</div>';
 }
 renderLetter();
@@ -607,8 +642,8 @@ function norm(s){ return s.toLocaleLowerCase("tr").replace(/â/g,"a"); }
 function renderList(){
   const q = norm($("#l-q").value.trim());
   const rows = ALL.filter(w => !q || norm(w.m).includes(q) || norm(w.tr).includes(q) || w.fa.includes($("#l-q").value.trim()));
-  $("#l-body").innerHTML = rows.length ? rows.map(w => '<tr><td class="fa" lang="fa">'+esc(w.fa)+'</td><td class="tr">'+esc(w.tr)+'</td><td>'+esc(w.m)+(store.known[w.id] ? ' <span class="k">✓</span>' : "")+(w.note ? '<div class="muted">'+esc(w.note)+'</div>' : "")+'</td></tr>').join("")
-    : '<tr><td colspan="3" class="muted">«'+esc($("#l-q").value)+'» için sonuç yok.</td></tr>';
+  $("#l-body").innerHTML = rows.length ? rows.map(w => '<tr><td class="say">'+speakBtn(w.fa, true)+'</td><td class="fa" lang="fa">'+esc(w.fa)+'</td><td class="tr">'+esc(w.tr)+'</td><td>'+esc(w.m)+(store.known[w.id] ? ' <span class="k">✓</span>' : "")+(w.note ? '<div class="muted">'+esc(w.note)+'</div>' : "")+'</td></tr>').join("")
+    : '<tr><td colspan="4" class="muted">«'+esc($("#l-q").value)+'» için sonuç yok.</td></tr>';
 }
 
 updateStat();
