@@ -6,5 +6,5 @@ Türkçe konuşanlar için Farsça öğrenme uygulaması. `index.html` dosyasın
 - **Test:** anlamını, okunuşunu ya da Farsçasını bulma
 - **Alfabe:** 32 harf ve her harfin dört biçimi
 - **Sözlük:** arama yapılabilen kelime listesi
-- **Sesli telaffuz:** her kelime ve cümle için kayıtlı ses (`audio/`), Piper fa_IR sesiyle üretildi
+- **Sesli telaffuz:** her kelime ve cümle için kayıtlı ses (`audio/`), Piper fa_IR (gyro) sesiyle üretildi
 - **Okunuş rehberi:** â, x, ğ gibi işaretlerin nasıl okunduğu
