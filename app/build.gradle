@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.farsca.kartlar'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.farsca.kartlar'
+        minSdk 24
+        targetSdk 34
+        // CI sets the run number so every build installs over the last one.
+        versionCode((System.getenv('GITHUB_RUN_NUMBER') ?: '1') as int)
+        versionName "1.0." + (System.getenv('GITHUB_RUN_NUMBER') ?: '0')
+    }
+
+    signingConfigs {
+        // Fixed key kept in the repo so new builds update the installed app instead of failing.
+        shared {
+            storeFile file('farsca.keystore')
+            storePassword 'farsca-kartlar'
+            keyAlias 'farsca'
+            keyPassword 'farsca-kartlar'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.shared
+        }
+        debug {
+            signingConfig signingConfigs.shared
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // mp3 and woff2 are already compressed.
+    androidResources {
+        noCompress 'mp3', 'woff2'
+    }
+}

@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<!--APP-START-->
+<title>Farsça Kartlar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Rutin düzeni: üstte çift çizgili başlık, ortada kayan sekme içeriği, altta büyük harfli sekme çubuğu.
+   Krem kâğıt, siyah mürekkep, kırmızı vurgu; başlıklar Playfair Display, Farsça Vazirmatn. */
+@font-face { font-family: 'Playfair'; font-style: normal; font-display: swap; font-weight: 400 900;
+  src: url(fonts/playfair-display-latin-ext-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'Playfair'; font-style: normal; font-display: swap; font-weight: 400 900;
+  src: url(fonts/playfair-display-latin-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'Vazirmatn'; font-style: normal; font-display: swap; font-weight: 100 900;
+  src: url(fonts/vazirmatn-arabic-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC; }
+
+:root {
+  --bg: #F5F0E3;
+  --card: #FBF8EF;
+  --fg: #1B1B1B;
+  --muted: #6E685B;
+  --line: #D9D1BC;
+  --accent: #B3151B;
+  --good: #2E7D4F;
+  --serif: 'Playfair', Georgia, 'Noto Serif', serif;
+  --sans: system-ui, -apple-system, Roboto, 'Segoe UI', sans-serif;
+  --fa: 'Vazirmatn', Tahoma, 'Noto Naskh Arabic', sans-serif;
+  color-scheme: light;
+}
+/* Koyu tema: telefon koyu moddaysa (ve Ayarlar'da Açık seçilmediyse) ya da Ayarlar'da Koyu seçildiyse. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171512; --card: #211E19; --fg: #EDE6D3; --muted: #A39A86; --line: #3A352C; --accent: #E0484D; --good: #6CC08F;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171512; --card: #211E19; --fg: #EDE6D3; --muted: #A39A86; --line: #3A352C; --accent: #E0484D; --good: #6CC08F;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  margin: 0; display: flex; flex-direction: column;
+  background: var(--bg); color: var(--fg);
+  font: 15px/1.45 var(--sans);
+  overflow: hidden;
+  padding-left: max(0px, env(safe-area-inset-left, 0px)); padding-right: max(0px, env(safe-area-inset-right, 0px));
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+[hidden] { display: none !important; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fa { font-family: var(--fa); direction: rtl; unicode-bidi: isolate; }
+.tr { color: var(--accent); font-weight: 700; }
+
+/* ---------- masthead ---------- */
+.mast { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px 8px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); border-bottom: 3px double var(--fg); }
+.mast h1 { margin: 0; font: 900 34px/1 var(--serif); letter-spacing: -0.5px; }
+.mast h1 span { color: var(--accent); }
+.mast-meta { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 0 8px; color: var(--muted); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.mast-meta span + span::before { content: '· '; }
+.round { flex: none; width: 44px; height: 44px; border: 1.5px solid var(--fg); border-radius: 50%; display: grid; place-items: center; }
+.round:active, .round.playing { background: var(--fg); color: var(--bg); }
+svg.ic { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- layout ---------- */
+main { flex: 1; min-height: 0; position: relative; }
+.tab { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.tab-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 24px; overscroll-behavior: contain; }
+.tabbar { flex: none; display: flex; border-top: 1.5px solid var(--fg); background: var(--bg); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.tabbar button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 7px;
+  color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.tabbar button.on { color: var(--accent); }
+
+/* ---------- chips & segments ---------- */
+.chips { flex: none; display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chips button { flex: none; padding: 6px 12px; border: 1.5px solid var(--line); border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.chips button.on { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.segs { flex: none; display: flex; margin: 0 16px 8px; border: 1.5px solid var(--fg); }
+.segs.in { margin: 0 0 8px; }
+.segs button { flex: 1; padding: 7px 2px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.segs button + button { border-left: 1.5px solid var(--fg); }
+.segs button.on { background: var(--fg); color: var(--bg); }
+.toggles { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 4px; }
+.tg { display: flex; align-items: center; gap: 7px; padding: 4px 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+.tg i { width: 16px; height: 16px; border: 1.5px solid var(--fg); display: grid; place-items: center; font-style: normal; font-size: 12px; line-height: 1; }
+.tg.on { color: var(--fg); }
+.tg.on i { background: var(--fg); color: var(--bg); }
+.tg.on i::before { content: '✓'; }
+
+/* ---------- shared bits ---------- */
+.note { margin: 10px 0; color: var(--muted); font-size: 12.5px; }
+.btn { display: inline-block; padding: 11px 16px; border: 1.5px solid var(--fg); font-weight: 700; font-size: 14px; text-align: center; }
+.btn.fill { background: var(--fg); color: var(--bg); }
+.btn.red { border-color: var(--accent); color: var(--accent); }
+.btn:active { opacity: 0.7; }
+.btn:disabled { opacity: 0.4; }
+.kicker { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+h2.sec { margin: 22px 0 8px; padding-bottom: 5px; border-bottom: 1.5px solid var(--fg); font: 800 18px/1.2 var(--serif); }
+.prog { display: flex; justify-content: space-between; margin: 4px 0 6px; font-size: 11px; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.bar { height: 3px; background: var(--line); margin-bottom: 12px; }
+.bar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+
+/* ---------- flashcard ---------- */
+.scene { perspective: 1200px; }
+.card { position: relative; min-height: 290px; transform-style: preserve-3d; transition: transform .45s cubic-bezier(.3,.7,.3,1); cursor: pointer; }
+.card.flipped { transform: rotateY(180deg); }
+.face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: var(--card); border: 1.5px solid var(--fg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 34px 18px 30px; text-align: center; }
+.face.back { transform: rotateY(180deg); border-width: 3px; border-style: double; }
+.face .kicker { position: absolute; top: 12px; left: 14px; }
+.face .round { position: absolute; top: 8px; right: 8px; }
+.face .hint { position: absolute; bottom: 10px; font-size: 11px; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+.big-fa { font-family: var(--fa); direction: rtl; font-size: clamp(2.2rem, 10vw, 3.3rem); font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.mid-fa { font-family: var(--fa); direction: rtl; font-size: 1.8rem; font-weight: 600; line-height: 1.5; }
+.big-tr { color: var(--accent); font: 700 1.45rem/1.3 var(--sans); }
+.meaning { font: 800 1.35rem/1.25 var(--serif); text-wrap: balance; }
+.nt { font-size: 13px; color: var(--muted); max-width: 40ch; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.done { border: 1.5px solid var(--fg); background: var(--card); padding: 28px 18px; text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 4px; }
+.done b { font: 800 21px/1.2 var(--serif); }
+
+/* ---------- quiz ---------- */
+.q { position: relative; border: 1.5px solid var(--fg); background: var(--card); padding: 30px 16px 18px; text-align: center; display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.q .round { position: absolute; top: 8px; right: 8px; }
+.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.opt { min-height: 56px; padding: 12px 8px; border: 1.5px solid var(--line); background: var(--card); font-weight: 600; font-size: 15px; }
+.opt.fa-o { font-family: var(--fa); font-size: 1.3rem; direction: rtl; }
+.opt.ok { border-color: var(--good); color: var(--good); border-width: 2.5px; }
+.opt.no { border-color: var(--accent); color: var(--accent); text-decoration: line-through; }
+.fb { min-height: 1.5em; margin: 12px 0; text-align: center; font-size: 14px; }
+.fb b.y { color: var(--good); }
+.fb b.n { color: var(--accent); }
+
+/* ---------- alphabet ---------- */
+.letters { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 6px; direction: rtl; }
+.letter { border: 1px solid var(--line); background: var(--card); padding: 6px 2px 5px; display: flex; flex-direction: column; align-items: center; }
+.letter .fa { font-size: 1.8rem; line-height: 1.4; }
+.letter small { font-size: 11px; color: var(--accent); font-weight: 700; direction: ltr; }
+.letter.on { border: 1.5px solid var(--fg); background: var(--fg); color: var(--bg); }
+.letter.on small { color: var(--bg); }
+.detail { border: 1.5px solid var(--fg); background: var(--card); padding: 14px; margin: 12px 0; display: flex; flex-direction: column; gap: 10px; }
+.detail h3 { margin: 0; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font: 800 20px/1.2 var(--serif); }
+.forms { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); direction: rtl; }
+.forms div { text-align: center; padding: 6px 2px; }
+.forms div + div { border-right: 1px solid var(--line); }
+.forms .fa { font-size: 1.9rem; display: block; line-height: 1.5; }
+.forms small { font-size: 10.5px; color: var(--muted); direction: ltr; display: block; text-transform: uppercase; letter-spacing: 0.04em; }
+.forms .na { opacity: .3; }
+.ex { display: flex; align-items: center; gap: 12px; }
+.vowels { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); }
+.vowels div { text-align: center; padding: 8px 2px; font-size: 12px; color: var(--muted); }
+.vowels div + div { border-left: 1px solid var(--line); }
+.vowels .fa { font-size: 1.8rem; display: block; color: var(--fg); }
+
+/* ---------- list & guide ---------- */
+.search { display: flex; align-items: center; gap: 8px; margin: 10px 16px 4px; padding: 0 10px; border: 1.5px solid var(--fg); background: var(--card); }
+.search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--fg); font: 15px var(--sans); padding: 10px 0; }
+.row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.row .round { width: 38px; height: 38px; }
+.row .round svg.ic { width: 18px; height: 18px; }
+.row .t { flex: 1; min-width: 0; }
+.row .t b { display: block; font: 700 15.5px/1.3 var(--serif); }
+.row .t small { display: block; color: var(--muted); font-size: 12.5px; }
+.row .t .tr { font-size: 13.5px; }
+.row .fa { font-size: 1.35rem; text-align: right; }
+.row .ok { color: var(--good); font-weight: 700; font-size: 12px; }
+.glist { margin: 0; }
+.g { display: grid; grid-template-columns: 52px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.g > b { font: 800 22px/1.2 var(--serif); color: var(--accent); }
+.g p { margin: 0 0 3px; }
+.g small { color: var(--muted); }
+.tips p { margin: 0 0 10px; }
+
+/* ---------- sheet ---------- */
+#sheet { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; justify-content: flex-end; background: rgba(0,0,0,.45); }
+.sheet-card { max-height: 88%; overflow-y: auto; background: var(--bg); border-top: 3px double var(--fg); padding: 6px 16px calc(20px + env(safe-area-inset-bottom, 0px)); }
+.sheet-card .grab { width: 44px; height: 4px; background: var(--line); margin: 6px auto 4px; }
+.set h2 { margin: 6px 0 4px; font: 900 26px/1.1 var(--serif); }
+.set h3 { margin: 18px 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.set .confirm { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; font-size: 13px; }
+@media (max-width: 360px) { .opts { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .card, .bar i { transition: none; } }
+</style>
+
+<header class="mast">
+  <div>
+    <h1>FARSÇA<span>.</span></h1>
+    <div class="mast-meta"><span id="m-tab">Kartlar</span><span id="m-stat"></span></div>
+  </div>
+  <button class="round" id="open-set" type="button" aria-label="Ayarlar">
+    <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
+</header>
+
+<main>
+  <!-- KARTLAR -->
+  <section class="tab" data-panel="cards">
+    <nav class="chips" id="c-cats" aria-label="Konu"></nav>
+    <div class="segs" id="c-dir">
+      <button type="button" data-v="fa">Farsça → Türkçe</button>
+      <button type="button" data-v="tr">Türkçe → Farsça</button>
+    </div>
+    <div class="tab-body">
+      <div class="toggles">
+        <button type="button" class="tg" data-tg="showTr"><i></i>Okunuşu ön yüzde göster</button>
+        <button type="button" class="tg" data-tg="onlyNew"><i></i>Sadece bilmediklerim</button>
+      </div>
+      <div id="c-area"></div>
+    </div>
+  </section>
+
+  <!-- TEST -->
+  <section class="tab" data-panel="quiz" hidden>
+    <nav class="chips" id="q-cats" aria-label="Konu"></nav>
+    <div class="segs" id="q-mode">
+      <button type="button" data-v="meaning">Anlamı</button>
+      <button type="button" data-v="read">Okunuşu</button>
+      <button type="button" data-v="fa">Farsçası</button>
+    </div>
+    <div class="tab-body"><div class="prog"><span>Soru</span><span id="q-score"></span></div><div id="q-area"></div></div>
+  </section>
+
+  <!-- ALFABE -->
+  <section class="tab" data-panel="alpha" hidden>
+    <div class="tab-body">
+      <p class="note">Farsça sağdan sola yazılır, 32 harf vardır. Bir harfe dokunun: kelimenin başında, ortasında ve sonundaki biçimi ile örnek kelime açılır.</p>
+      <div id="a-detail"></div>
+      <div class="letters" id="a-grid"></div>
+      <h2 class="sec">Kısa ünlüler</h2>
+      <p class="note">a, e ve o kısa ünlüleri normalde yazılmaz. Okunuşu bu yüzden kartlarda Latin harfleriyle veriyoruz. Ders kitaplarında işaretle gösterilirler:</p>
+      <div class="vowels">
+        <div><span class="fa">بَ</span><b class="tr">ba</b><br>zebar</div>
+        <div><span class="fa">بِ</span><b class="tr">be</b><br>zir</div>
+        <div><span class="fa">بُ</span><b class="tr">bo</b><br>piş</div>
+        <div><span class="fa">بّ</span><b class="tr">bb</b><br>taşdid</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SÖZLÜK -->
+  <section class="tab" data-panel="list" hidden>
+    <label class="search"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="search" id="l-q" placeholder="Türkçe, okunuş ya da Farsça ara" aria-label="Sözlükte ara"></label>
+    <div class="tab-body" id="l-body"></div>
+  </section>
+
+  <!-- REHBER -->
+  <section class="tab" data-panel="guide" hidden>
+    <div class="tab-body">
+      <h2 class="sec">Okunuş işaretleri</h2>
+      <p class="note">Okunuşlar Türkçe okuyan biri için yazıldı. Harfleri Türkçedeki gibi okuyun; Türkçede olmayan sesler şunlar:</p>
+      <div class="glist">
+        <div class="g"><b>â</b><div><p>Uzun, kalın a. Ağzı yuvarlayarak, «o»ya yakın söylenir.</p><small><span class="fa">آب</span> <span class="tr">âb</span> su</small></div></div>
+        <div class="g"><b>a</b><div><p>Kısa a. Türkçe «a» ile «e» arası, «e»ye daha yakın.</p><small><span class="fa">زن</span> <span class="tr">zan</span> kadın</small></div></div>
+        <div class="g"><b>e, o</b><div><p>Kısa e ve kısa o, Türkçedeki gibi.</p><small><span class="fa">پسر</span> <span class="tr">pesar</span> oğul</small></div></div>
+        <div class="g"><b>i, u</b><div><p>Uzun i ve uzun u, biraz uzatarak.</p><small><span class="fa">خوب</span> <span class="tr">xub</span> iyi</small></div></div>
+        <div class="g"><b>x</b><div><p>Gırtlaktan, hırıltılı h (Almanca «Bach»taki ch). Harf: <span class="fa">خ</span></p><small><span class="fa">خانه</span> <span class="tr">xâne</span> ev</small></div></div>
+        <div class="g"><b>ğ</b><div><p>Gırtlakta kalın g; yutulmaz, duyulur. Harfler: <span class="fa">غ</span> ve <span class="fa">ق</span></p><small><span class="fa">غذا</span> <span class="tr">ğazâ</span> yemek</small></div></div>
+        <div class="g"><b>j</b><div><p>Fransızca «jurnal»daki j. Harf: <span class="fa">ژ</span>. c, ç, ş Türkçedeki gibi.</p><small><span class="fa">چای</span> <span class="tr">çây</span> çay</small></div></div>
+        <div class="g"><b>ow</b><div><p>«o» ile «v» arası kayan ses.</p><small><span class="fa">چطور</span> <span class="tr">çetowr</span> nasıl</small></div></div>
+        <div class="g"><b>'</b><div><p>Kısa duraklama (<span class="fa">ع</span> ya da <span class="fa">ء</span>), çoğu zaman hafif.</p><small><span class="fa">ساعت</span> <span class="tr">sâ'at</span> saat</small></div></div>
+        <div class="g"><b>-e</b><div><p>İzafet: iki kelimeyi bağlayan «-e». Yazılmaz ama okunur.</p><small><span class="fa">اسم من</span> <span class="tr">esm-e man</span> benim adım</small></div></div>
+      </div>
+      <h2 class="sec">Yazı ipuçları</h2>
+      <div class="tips">
+        <p>Kısa ünlüler yazılmaz: <span class="fa">پدر</span> yalnızca p-d-r yazılır ama <span class="tr">pedar</span> okunur.</p>
+        <p><span class="fa">و</span> harfi v, u, o ya da ow okunabilir. <span class="fa">ی</span> harfi y, i ya da ey okunabilir.</p>
+        <p>Sondaki <span class="fa">ه</span> çoğu zaman «e» sesi verir: <span class="fa">خانه</span> <span class="tr">xâne</span>.</p>
+        <p><span class="fa">خوا</span> grubunda <span class="fa">و</span> okunmaz: <span class="fa">خواهر</span> <span class="tr">xâhar</span> (kız kardeş).</p>
+        <p>«Konuşma dili» notlu kartlar Tahran'da günlük konuşmada kullanılan biçimdir.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar" aria-label="Bölümler">
+  <button type="button" data-tab="cards" class="on"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="14"/><path d="M7 3h14v14"/></svg>Kartlar</button>
+  <button type="button" data-tab="quiz"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Test</button>
+  <button type="button" data-tab="alpha"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19 9 5l5 14M6 14h6"/><path d="M17 7v12"/></svg>Alfabe</button>
+  <button type="button" data-tab="list"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-4a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h5z"/></svg>Sözlük</button>
+  <button type="button" data-tab="guide"><svg class="ic" viewBox="0 0 24 24"><path d="M8 18a4 4 0 0 0 4 2 4 4 0 0 0 4-4c0-3 3-4 3-8a7 7 0 0 0-14 0"/><path d="M10 9a2 2 0 1 1 3 1.7c-1 .6-1 1.3-1 2.3"/></svg>Rehber</button>
+</nav>
+
+<div id="sheet" hidden><div class="sheet-card"><div class="grab"></div><div class="set" id="sheet-body"></div></div></div>
+
+<script>
+(function(){
+const ZWJ = "‍";
+// [Farsça, okunuş, anlam, not]
+const CATS = [
+ {id:"selam", name:"Selamlaşma", items:[
+  ["سلام","salâm","Merhaba"],
+  ["خداحافظ","xodâhâfez","Hoşça kal","Kelimesi kelimesine: Allah korusun"],
+  ["صبح بخیر","sobh bexeyr","Günaydın"],
+  ["شب بخیر","şab bexeyr","İyi geceler"],
+  ["ممنون","mamnun","Teşekkürler"],
+  ["مرسی","mersi","Sağ ol","Fransızcadan geçmiş, çok yaygın"],
+  ["خواهش می‌کنم","xâheş mikonam","Rica ederim / Lütfen"],
+  ["بله","bale","Evet"],
+  ["نه","na","Hayır"],
+  ["ببخشید","bebaxşid","Affedersiniz / Pardon"],
+  ["خوش آمدید","xoş âmadid","Hoş geldiniz"],
+  ["لطفاً","lotfan","Lütfen"],
+  ["خیلی ممنون","xeyli mamnun","Çok teşekkürler"],
+ ]},
+ {id:"aile", name:"Aile", items:[
+  ["خانواده","xânevâde","Aile"],
+  ["مادر","mâdar","Anne"],
+  ["پدر","pedar","Baba"],
+  ["مامان","mâmân","Anne (sevgiyle)"],
+  ["بابا","bâbâ","Baba (sevgiyle)"],
+  ["همسر","hamsar","Eş"],
+  ["زن","zan","Kadın / karı"],
+  ["شوهر","şowhar","Koca"],
+  ["مادرزن","mâdarzan","Kayınvalide","Karının annesi"],
+  ["مادرشوهر","mâdarşowhar","Kayınvalide","Kocanın annesi"],
+  ["برادر","barâdar","Erkek kardeş"],
+  ["خواهر","xâhar","Kız kardeş","و okunmaz"],
+  ["پسر","pesar","Oğul / erkek çocuk"],
+  ["دختر","doxtar","Kız / kız çocuk"],
+  ["بچه","baççe","Çocuk"],
+  ["مادربزرگ","mâdarbozorg","Büyükanne"],
+  ["پدربزرگ","pedarbozorg","Büyükbaba"],
+ ]},
+ {id:"sayi", name:"Sayılar", items:[
+  ["یک","yek","Bir","Rakam: ۱"],
+  ["دو","do","İki","Rakam: ۲"],
+  ["سه","se","Üç","Rakam: ۳"],
+  ["چهار","çahâr","Dört","Rakam: ۴. Konuşmada: çâr"],
+  ["پنج","panc","Beş","Rakam: ۵"],
+  ["شش","şeş","Altı","Rakam: ۶"],
+  ["هفت","haft","Yedi","Rakam: ۷"],
+  ["هشت","haşt","Sekiz","Rakam: ۸"],
+  ["نه","noh","Dokuz","Rakam: ۹. Yazılışı «hayır» ile aynı, okunuşu farklı"],
+  ["ده","dah","On","Rakam: ۱۰"],
+  ["بیست","bist","Yirmi","Rakam: ۲۰"],
+  ["صد","sad","Yüz","Rakam: ۱۰۰"],
+  ["هزار","hezâr","Bin","Rakam: ۱۰۰۰"],
+ ]},
+ {id:"yemek", name:"Yemek & sofra", items:[
+  ["غذا","ğazâ","Yemek"],
+  ["آب","âb","Su"],
+  ["نان","nân","Ekmek"],
+  ["چای","çây","Çay"],
+  ["برنج","berenc","Pirinç / pilav"],
+  ["گوشت","guşt","Et"],
+  ["مرغ","morğ","Tavuk"],
+  ["تخم مرغ","toxm-e morğ","Yumurta"],
+  ["میوه","mive","Meyve"],
+  ["سیب","sib","Elma"],
+  ["شیر","şir","Süt"],
+  ["پنیر","panir","Peynir"],
+  ["ماست","mâst","Yoğurt"],
+  ["سبزی","sabzi","Yeşillik / otlar"],
+  ["خوشمزه","xoşmaze","Lezzetli"],
+  ["نوش جان","nuş-e cân","Afiyet olsun"],
+ ]},
+ {id:"gunluk", name:"Günlük kelimeler", items:[
+  ["خانه","xâne","Ev","Konuşmada: xune"],
+  ["در","dar","Kapı"],
+  ["اتاق","otâğ","Oda"],
+  ["کتاب","ketâb","Kitap"],
+  ["ماشین","mâşin","Araba"],
+  ["پول","pul","Para"],
+  ["کار","kâr","İş"],
+  ["روز","ruz","Gün"],
+  ["شب","şab","Gece"],
+  ["امروز","emruz","Bugün"],
+  ["فردا","fardâ","Yarın"],
+  ["دیروز","diruz","Dün"],
+  ["الان","alân","Şimdi"],
+  ["دوست","dust","Arkadaş / dost"],
+  ["گل","gol","Çiçek / gül"],
+ ]},
+ {id:"sifat", name:"Sıfatlar & duygular", items:[
+  ["خوب","xub","İyi"],
+  ["بد","bad","Kötü"],
+  ["بزرگ","bozorg","Büyük"],
+  ["کوچک","kuçak","Küçük","Konuşmada: kuçik (کوچیک)"],
+  ["زیبا","zibâ","Güzel"],
+  ["قشنگ","ğaşang","Güzel / hoş"],
+  ["گرم","garm","Sıcak"],
+  ["سرد","sard","Soğuk"],
+  ["خسته","xaste","Yorgun"],
+  ["گرسنه","gorosne","Aç"],
+  ["تشنه","teşne","Susamış"],
+  ["خوشحال","xoşhâl","Mutlu"],
+  ["زیاد","ziyâd","Çok"],
+  ["کم","kam","Az"],
+ ]},
+ {id:"fiil", name:"Fiiller", items:[
+  ["رفتن","raftan","Gitmek","می‌روم miravam: gidiyorum"],
+  ["آمدن","âmadan","Gelmek","می‌آیم miyâyam: geliyorum"],
+  ["خوردن","xordan","Yemek (fiil)","می‌خورم mixoram: yiyorum"],
+  ["نوشیدن","nuşidan","İçmek"],
+  ["خوابیدن","xâbidan","Uyumak","و okunmaz"],
+  ["دیدن","didan","Görmek","می‌بینم mibinam: görüyorum"],
+  ["گفتن","goftan","Söylemek","می‌گویم miguyam: söylüyorum"],
+  ["دانستن","dânestan","Bilmek"],
+  ["خواستن","xâstan","İstemek","می‌خواهم mixâham: istiyorum"],
+  ["دوست داشتن","dust dâştan","Sevmek"],
+  ["حرف زدن","harf zadan","Konuşmak"],
+ ]},
+ {id:"cumle", name:"Temel cümleler", items:[
+  ["حال شما چطور است؟","hâl-e şomâ çetowr ast?","Nasılsınız?","Resmi"],
+  ["خوبی؟","xubi?","İyi misin?","Konuşma dili"],
+  ["خوبم، مرسی","xubam, mersi","İyiyim, sağ ol"],
+  ["اسم شما چیست؟","esm-e şomâ çist?","Adınız ne?","Resmi"],
+  ["اسمت چیه؟","esmet çiye?","Adın ne?","Konuşma dili"],
+  ["خوشبختم","xoşbaxtam","Memnun oldum"],
+  ["من ترک هستم","man tork hastam","Ben Türküm"],
+  ["فارسی یاد می‌گیرم","fârsi yâd migiram","Farsça öğreniyorum"],
+  ["کمی فارسی بلدم","kami fârsi baladam","Biraz Farsça biliyorum"],
+  ["نمی‌فهمم","nemifahmam","Anlamıyorum"],
+  ["لطفاً آهسته‌تر صحبت کنید","lotfan âheste-tar sohbat konid","Lütfen daha yavaş konuşun"],
+  ["این چیه؟","in çiye?","Bu ne?","Konuşma dili"],
+  ["به فارسی چی می‌شه؟","be fârsi çi mişe?","Farsçası ne?","Konuşma dili"],
+  ["ساعت چنده؟","sâ'at çande?","Saat kaç?","Konuşma dili"],
+  ["چقدر؟","çeğadr?","Ne kadar?"],
+  ["عیبی نداره","eybi nadâre","Önemli değil / sorun yok","Konuşma dili"],
+ ]},
+ {id:"ev", name:"Evde & sofrada", items:[
+  ["چای می‌خوری؟","çây mixori?","Çay içer misin?","Konuşma dili"],
+  ["بله، لطفاً","bale, lotfan","Evet, lütfen"],
+  ["گرسنه‌ام","gorosne-am","Açım"],
+  ["خیلی خوشمزه است","xeyli xoşmaze ast","Çok lezzetli"],
+  ["دستت درد نکنه","dastet dard nakone","Eline sağlık","Kelimesi kelimesine: elin ağrımasın. Yemek ya da yardım için teşekkür"],
+  ["خسته نباشید","xaste nabâşid","Kolay gelsin","Kelimesi kelimesine: yorgun olmayın"],
+  ["کجایی؟","kocâyi?","Neredesin?","Konuşma dili"],
+  ["خونه‌ام","xune-am","Evdeyim","Konuşma dili"],
+  ["فردا می‌بینمت","fardâ mibinamet","Yarın görüşürüz","Konuşma dili"],
+  ["مواظب خودت باش","movâzeb-e xodet bâş","Kendine iyi bak"],
+  ["بفرمایید","befarmâyid","Buyurun","Yemeğe, içeri girmeye ya da oturmaya davet"],
+ ]},
+ {id:"sevgi", name:"Sevgi & aile sohbeti", items:[
+  ["دوستت دارم","dustet dâram","Seni seviyorum"],
+  ["دلم برات تنگ شده","delam barât tang şode","Seni özledim","Konuşma dili"],
+  ["عزیزم","azizam","Canım / sevgilim"],
+  ["جان","cân","Can / -ciğim","İsimden sonra: Maryam cân = Meryemciğim"],
+  ["قربونت برم","ğorbunet beram","Kurban olayım","Çok sık kullanılan sevgi ve teşekkür ifadesi"],
+  ["مادر جان، حالتون چطوره؟","mâdar cân, hâletun çetowre?","Anneciğim, nasılsınız?","Kayınvalideye saygılı ve sıcak hitap"],
+  ["تولدت مبارک","tavallodet mobârak","Doğum günün kutlu olsun"],
+  ["عید شما مبارک","eyd-e şomâ mobârak","Bayramınız kutlu olsun","Nevruz'da çok kullanılır"],
+  ["سال نو مبارک","sâl-e now mobârak","Yeni yılınız kutlu olsun","Nevruz tebriği"],
+ ]},
+];
+
+// harf, adı, okunuş, ses açıklaması, örnek [fa, okunuş, anlam]
+const LETTERS = [
+ ["ا","elif","â / a","Kelime başında ünlüyü taşır; ortada ve sonda uzun â.",["آب","âb","su"]],
+ ["ب","be","b","Türkçe b.",["بابا","bâbâ","baba"]],
+ ["پ","pe","p","Türkçe p.",["پدر","pedar","baba"]],
+ ["ت","te","t","Türkçe t.",["توت","tut","dut"]],
+ ["ث","se","s","s. Arapçadan gelen kelimelerde.",["ثانیه","sâniye","saniye"]],
+ ["ج","cim","c","Türkçe c.",["جان","cân","can"]],
+ ["چ","çe","ç","Türkçe ç.",["چای","çây","çay"]],
+ ["ح","he","h","h. Arapçadan gelen kelimelerde.",["حال","hâl","hâl"]],
+ ["خ","xe","x","Hırıltılı gırtlak h'si.",["خوب","xub","iyi"]],
+ ["د","dâl","d","Türkçe d. Soldaki harfe bağlanmaz.",["در","dar","kapı"]],
+ ["ذ","zâl","z","z. Soldaki harfe bağlanmaz.",["ذرت","zorrat","mısır"]],
+ ["ر","re","r","Türkçe r. Soldaki harfe bağlanmaz.",["روز","ruz","gün"]],
+ ["ز","ze","z","Türkçe z. Soldaki harfe bağlanmaz.",["زن","zan","kadın"]],
+ ["ژ","je","j","Türkçe j (jale). Soldaki harfe bağlanmaz.",["ژاپن","jâpon","Japonya"]],
+ ["س","sin","s","Türkçe s.",["سیب","sib","elma"]],
+ ["ش","şin","ş","Türkçe ş.",["شب","şab","gece"]],
+ ["ص","sâd","s","s. Arapçadan gelen kelimelerde.",["صبح","sobh","sabah"]],
+ ["ض","zâd","z","z. Arapçadan gelen kelimelerde.",["ضعیف","za'if","zayıf"]],
+ ["ط","tâ","t","t. Arapçadan gelen kelimelerde.",["طلا","talâ","altın"]],
+ ["ظ","zâ","z","z. Arapçadan gelen kelimelerde.",["ظهر","zohr","öğle"]],
+ ["ع","eyn","'","Kısa duraklama ya da sessiz.",["عید","eyd","bayram"]],
+ ["غ","ğeyn","ğ","Gırtlakta kalın ğ.",["غذا","ğazâ","yemek"]],
+ ["ف","fe","f","Türkçe f.",["فردا","fardâ","yarın"]],
+ ["ق","ğâf","ğ","غ ile aynı okunur.",["قند","ğand","kesme şeker"]],
+ ["ک","kâf","k","Türkçe k.",["کتاب","ketâb","kitap"]],
+ ["گ","gâf","g","Türkçe g.",["گل","gol","çiçek"]],
+ ["ل","lâm","l","Türkçe l.",["لب","lab","dudak"]],
+ ["م","mim","m","Türkçe m.",["مادر","mâdar","anne"]],
+ ["ن","nun","n","Türkçe n.",["نان","nân","ekmek"]],
+ ["و","vâv","v / u / o","Ünsüz v ya da ünlü u, o, ow. Soldaki harfe bağlanmaz.",["خوب","xub","iyi"]],
+ ["ه","he","h / e","Başta ve ortada h; sonda çoğu zaman e.",["هفت","haft","yedi"]],
+ ["ی","ye","y / i","Ünsüz y ya da ünlü i, ey.",["سیب","sib","elma"]],
+];
+const NONJOIN = new Set(["ا","د","ذ","ر","ز","ژ","و"]);
+
+// ---- storage ----
+const KEY = "farsca-kartlar-v1";
+let store = {known:{}, settings:{}};
+try { const s = JSON.parse(localStorage.getItem(KEY)||"null"); if (s && s.known) store = Object.assign(store, s); } catch(e){}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(store)); } catch(e){} }
+const st = store.settings;
+if (st.showTr === undefined) st.showTr = true;
+st.cat = st.cat || "selam"; st.dir = st.dir || "fa"; st.qcat = st.qcat || "all"; st.qmode = st.qmode || "meaning"; st.theme = st.theme || "system";
+
+const ALL = [];
+CATS.forEach(c => c.items.forEach(it => ALL.push({fa:it[0], tr:it[1], m:it[2], note:it[3]||"", cat:c.name, id:c.id+"|"+it[0]})));
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+function shuffle(a){ a = a.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function pool(cat){ return cat==="all" ? ALL : ALL.filter(w => w.id.startsWith(cat+"|")); }
+function updateStat(){ $("#m-stat").textContent = ALL.filter(w => store.known[w.id]).length + " / " + ALL.length + " öğrenildi"; }
+
+// ---- theme (Telefona uy / Açık / Koyu) and native bars ----
+function applyTheme(){
+  const root = document.documentElement;
+  if (st.theme === "system") delete root.dataset.theme; else root.dataset.theme = st.theme;
+  try { if (window.Android && Android.setBars) { const bg = getComputedStyle(root).getPropertyValue("--bg").trim(); Android.setBars(bg, bg); } } catch(e){}
+}
+try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); } catch(e){}
+applyTheme();
+
+// ---- audio: recorded clips in audio/<fnv>.mp3, device voice as fallback ----
+function fnv(t){ let h = 0x811c9dc5; for (const ch of t){ h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; } return ("0000000" + h.toString(16)).slice(-8); }
+let faVoice = null;
+function findVoice(){ try { faVoice = speechSynthesis.getVoices().find(x => /^fa/i.test(x.lang)) || null; } catch(e){ faVoice = null; } }
+try { findVoice(); speechSynthesis.addEventListener("voiceschanged", findVoice); } catch(e){}
+const player = new Audio(); player.preload = "auto";
+let playingBtn = null;
+function setPlaying(b){ if (playingBtn) playingBtn.classList.remove("playing"); playingBtn = b || null; if (playingBtn) playingBtn.classList.add("playing"); }
+player.addEventListener("ended", () => setPlaying(null));
+player.addEventListener("pause", () => setPlaying(null));
+function deviceSpeak(text){ if (!faVoice) return; try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.voice = faVoice; u.lang = faVoice.lang; u.rate = st.slow ? .6 : .85; speechSynthesis.speak(u); } catch(e){} }
+function speak(text, btn){
+  try { player.pause(); } catch(e){}
+  player.src = "audio/" + fnv(text) + ".mp3";
+  player.playbackRate = st.slow ? .75 : 1;
+  try { player.preservesPitch = true; } catch(e){}
+  const p = player.play(); setPlaying(btn);
+  if (p && p.catch) p.catch(() => { setPlaying(null); deviceSpeak(text); });
+}
+const ICON = '<svg class="ic" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+function speakBtn(text){ return '<button class="round" type="button" data-say="'+esc(text)+'" aria-label="Sesli dinle">'+ICON+'</button>'; }
+document.addEventListener("click", e => { const b = e.target.closest("[data-say]"); if (b){ e.stopPropagation(); e.preventDefault(); speak(b.dataset.say, b); } }, true);
+
+// ---- tabs ----
+const TABS = {cards:"Kartlar", quiz:"Test", alpha:"Alfabe", list:"Sözlük", guide:"Okunuş rehberi"};
+let tab = "cards";
+$$(".tabbar button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+function setTab(t){
+  tab = t;
+  $$(".tabbar button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  $$("[data-panel]").forEach(p => p.hidden = p.dataset.panel !== t);
+  $("#m-tab").textContent = TABS[t];
+  if (t === "quiz" && !qState) newQuestion();
+  if (t === "list") renderList();
+}
+
+// ---- chips / segs helpers ----
+function fillChips(el, cur, onPick){
+  el.innerHTML = '<button type="button" data-v="all">Hepsi</button>' + CATS.map(c => '<button type="button" data-v="'+c.id+'">'+esc(c.name)+'</button>').join("");
+  const mark = v => el.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  mark(cur);
+  el.addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; mark(b.dataset.v); onPick(b.dataset.v); });
+  const on = el.querySelector(".on"); if (on) setTimeout(() => on.scrollIntoView({inline:"center", block:"nearest"}), 0);
+}
+function segs(el, cur, onPick){
+  const mark = v => el.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  mark(cur);
+  el.addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; mark(b.dataset.v); onPick(b.dataset.v); });
+}
+
+// ---- flashcards ----
+let deck = [], flipped = false, total = 0, doneCount = 0, userActed = false;
+document.addEventListener("pointerdown", () => { userActed = true; }, {capture:true, once:true});
+fillChips($("#c-cats"), st.cat, v => { st.cat = v; save(); buildDeck(); });
+segs($("#c-dir"), st.dir, v => { st.dir = v; save(); buildDeck(); });
+$$(".tg").forEach(b => {
+  b.classList.toggle("on", !!st[b.dataset.tg]);
+  b.addEventListener("click", () => { const k = b.dataset.tg; st[k] = !st[k]; b.classList.toggle("on", st[k]); save(); if (k === "onlyNew") buildDeck(); else renderCard(); });
+});
+function buildDeck(){
+  let p = pool(st.cat);
+  if (st.onlyNew) p = p.filter(w => !store.known[w.id]);
+  deck = shuffle(p); total = deck.length; doneCount = 0; flipped = false;
+  renderCard();
+}
+function renderCard(){
+  const area = $("#c-area");
+  if (!deck.length){
+    area.innerHTML = '<div class="done"><b>' + (total ? "Desteyi bitirdiniz" : "Bu konudaki kartların hepsini biliyorsunuz") + '</b>'
+      + '<span class="note" style="margin:0">' + (total ? total + " kartın hepsini «Biliyorum» olarak işaretlediniz." : "«Sadece bilmediklerim» seçeneğini kapatıp tekrar edebilirsiniz.") + '</span>'
+      + '<button class="btn fill" id="c-restart" type="button">Desteyi baştan karıştır</button></div>';
+    $("#c-restart").onclick = () => { if (!total) { st.onlyNew = false; save(); $('.tg[data-tg="onlyNew"]').classList.remove("on"); } buildDeck(); };
+    return;
+  }
+  const w = deck[0], dirFa = st.dir === "fa";
+  const front = dirFa
+    ? '<div class="big-fa" lang="fa">'+esc(w.fa)+'</div>' + (st.showTr ? '<div class="big-tr">'+esc(w.tr)+'</div>' : "")
+    : '<div class="meaning" style="font-size:1.7rem">'+esc(w.m)+'</div>';
+  const back = '<div class="'+(dirFa ? "mid-fa" : "big-fa")+'" lang="fa">'+esc(w.fa)+'</div>'
+    + '<div class="big-tr">'+esc(w.tr)+'</div><div class="meaning">'+esc(w.m)+'</div>'
+    + (w.note ? '<div class="nt">'+esc(w.note)+'</div>' : "");
+  area.innerHTML =
+    '<div class="prog"><span>'+esc(w.cat)+'</span><span>'+doneCount+' / '+total+(store.known[w.id] ? ' · biliyorsunuz' : '')+'</span></div>'
+    + '<div class="bar"><i style="width:'+(total ? doneCount/total*100 : 0)+'%"></i></div>'
+    + '<div class="scene"><div class="card'+(flipped ? " flipped" : "")+'" id="card" tabindex="0" role="button" aria-label="Kartı çevir">'
+    +   '<div class="face front"><span class="kicker">Ön yüz</span>'+speakBtn(w.fa)+front+'<span class="hint">Çevirmek için dokunun</span></div>'
+    +   '<div class="face back"><span class="kicker">Arka yüz</span>'+speakBtn(w.fa)+back+'</div>'
+    + '</div></div>'
+    + '<div class="two"><button class="btn red" id="b-again" type="button">Tekrar sor</button><button class="btn fill" id="b-know" type="button">Biliyorum</button></div>';
+  $("#card").onclick = flip;
+  $("#b-again").onclick = again;
+  $("#b-know").onclick = know;
+  if (st.auto && userActed && dirFa && !flipped) speak(w.fa, $("#card .front .round"));
+}
+function flip(){
+  flipped = !flipped; const c = $("#card"); if (c) c.classList.toggle("flipped", flipped);
+  if (flipped && st.auto && st.dir === "tr" && deck.length) speak(deck[0].fa, $("#card .back .round"));
+}
+function again(){ const w = deck.shift(); delete store.known[w.id]; save(); deck.splice(Math.min(deck.length, 3 + Math.floor(Math.random()*3)), 0, w); flipped = false; updateStat(); renderCard(); }
+function know(){ const w = deck.shift(); store.known[w.id] = 1; save(); doneCount++; flipped = false; updateStat(); renderCard(); }
+document.addEventListener("keydown", e => {
+  if (tab !== "cards" || e.target.matches("input") || !deck.length || !$("#sheet").hidden) return;
+  if (e.key === " " || e.key === "Enter") { e.preventDefault(); flip(); }
+  else if (e.key === "ArrowRight") know();
+  else if (e.key === "ArrowLeft") again();
+});
+
+// ---- quiz ----
+let qState = null, qRight = 0, qTotal = 0;
+fillChips($("#q-cats"), st.qcat, v => { st.qcat = v; save(); qRight = qTotal = 0; newQuestion(); });
+segs($("#q-mode"), st.qmode, v => { st.qmode = v; save(); qRight = qTotal = 0; newQuestion(); });
+function newQuestion(){
+  const p = pool(st.qcat), mode = st.qmode;
+  const field = mode === "meaning" ? "m" : mode === "read" ? "tr" : "fa";
+  const w = p[Math.floor(Math.random()*p.length)];
+  const src = p.length >= 4 ? p : ALL, seen = new Set([w[field]]), opts = [w];
+  for (const x of shuffle(src)) { if (opts.length >= 4) break; if (!seen.has(x[field])) { seen.add(x[field]); opts.push(x); } }
+  qState = {w, opts: shuffle(opts), field, answered:false};
+  renderQuiz();
+}
+function renderQuiz(){
+  const {w, opts, field} = qState;
+  $("#q-score").textContent = qTotal ? "Doğru " + qRight + " / " + qTotal : "";
+  const prompt = field === "fa"
+    ? '<div class="meaning" style="font-size:1.6rem">'+esc(w.m)+'</div><div class="note" style="margin:0">Farsçası hangisi?</div>'
+    : '<div class="big-fa" lang="fa">'+esc(w.fa)+'</div><div class="note" style="margin:0">'+(field === "m" ? "Ne demek?" : "Nasıl okunur?")+'</div>';
+  $("#q-area").innerHTML = '<div class="q">'+(field === "m" ? speakBtn(w.fa) : "")+prompt+'</div>'
+    + '<div class="opts">' + opts.map((o,i) => '<button type="button" class="opt'+(field === "fa" ? " fa-o" : "")+'" data-i="'+i+'">'+esc(o[field])+'</button>').join("") + '</div>'
+    + '<div class="fb" id="q-fb"></div>'
+    + '<button class="btn fill" id="q-next" type="button" style="width:100%" disabled>Sonraki soru</button>';
+  $$(".opt").forEach(b => b.onclick = () => answer(+b.dataset.i));
+  $("#q-next").onclick = newQuestion;
+}
+function answer(i){
+  if (qState.answered) return; qState.answered = true; qTotal++;
+  const {w, opts} = qState, ok = opts[i] === w; if (ok) qRight++;
+  $$(".opt").forEach((b,j) => { if (opts[j] === w) b.classList.add("ok"); else if (j === i) b.classList.add("no"); b.disabled = true; });
+  $("#q-fb").innerHTML = (ok ? '<b class="y">Doğru.</b> ' : '<b class="n">Yanlış.</b> ')
+    + '<span class="fa" lang="fa">'+esc(w.fa)+'</span> <span class="tr">'+esc(w.tr)+'</span>: '+esc(w.m);
+  $("#q-score").textContent = "Doğru " + qRight + " / " + qTotal;
+  $("#q-next").disabled = false;
+  if (!$(".q .round")) $(".q").insertAdjacentHTML("afterbegin", speakBtn(w.fa));
+  speak(w.fa, $(".q .round"));
+}
+
+// ---- alphabet ----
+let selLetter = 0;
+$("#a-grid").innerHTML = LETTERS.map((L,i) => '<button type="button" class="letter" data-i="'+i+'"><span class="fa" lang="fa">'+L[0]+'</span><small>'+esc(L[2])+'</small></button>').join("");
+$("#a-grid").addEventListener("click", e => { const b = e.target.closest(".letter"); if (!b) return; selLetter = +b.dataset.i; renderLetter(); $(".tab:not([hidden]) .tab-body").scrollTo({top:0, behavior:"smooth"}); });
+function highlight(word, ch){ return esc(word).split("").map(c => c === ch ? '<b style="color:var(--accent)">'+c+'</b>' : c).join(""); }
+function renderLetter(){
+  $$(".letter").forEach(b => b.classList.toggle("on", +b.dataset.i === selLetter));
+  const [ch, name, tr, desc, ex] = LETTERS[selLetter];
+  const nj = NONJOIN.has(ch);
+  const f = (s, lbl, na) => '<div class="'+(na ? "na" : "")+'"><span class="fa" lang="fa">'+s+'</span><small>'+lbl+'</small></div>';
+  $("#a-detail").innerHTML = '<div class="detail">'
+    + '<h3><span class="fa" lang="fa" style="font-size:2.3rem;font-weight:600">'+ch+'</span>'+esc(name)+' <span class="tr" style="font:700 17px var(--sans)">'+esc(tr)+'</span></h3>'
+    + '<div class="note" style="margin:-4px 0 0">'+esc(desc)+'</div>'
+    + '<div class="forms">' + f(ch, "tek") + f(nj ? "—" : ch+ZWJ, "başta", nj) + f(nj ? "—" : ZWJ+ch+ZWJ, "ortada", nj) + f(ZWJ+ch, "sonda") + '</div>'
+    + '<div class="ex">'+speakBtn(ex[0])+'<div><span class="kicker">Örnek</span><br><span class="fa" lang="fa" style="font-size:1.5rem">'+highlight(ex[0], ch)+'</span> <span class="tr">'+esc(ex[1])+'</span> · '+esc(ex[2])+'</div></div>'
+    + '</div>';
+}
+renderLetter();
+
+// ---- list ----
+$("#l-q").addEventListener("input", renderList);
+function norm(s){ return s.toLocaleLowerCase("tr").replace(/â/g, "a"); }
+function renderList(){
+  const raw = $("#l-q").value.trim(), q = norm(raw);
+  const rows = ALL.filter(w => !q || norm(w.m).includes(q) || norm(w.tr).includes(q) || w.fa.includes(raw));
+  $("#l-body").innerHTML = rows.length ? rows.map(w => '<div class="row">'+speakBtn(w.fa)
+    + '<div class="t"><b>'+esc(w.m)+(store.known[w.id] ? ' <span class="ok">✓</span>' : "")+'</b><span class="tr">'+esc(w.tr)+'</span>'+(w.note ? '<small>'+esc(w.note)+'</small>' : "")+'</div>'
+    + '<div class="fa" lang="fa">'+esc(w.fa)+'</div></div>').join("")
+    : '<p class="note">«'+esc(raw)+'» için sonuç yok.</p>';
+}
+
+// ---- settings sheet ----
+const THEMES = [["system","Telefona uy"],["light","Açık"],["dark","Koyu"]];
+function sheetHtml(){
+  return '<h2>Ayarlar</h2>'
+    + '<h3>Görünüm</h3><div class="segs in" data-set="theme">' + THEMES.map(([v,n]) => '<button type="button" data-v="'+v+'" class="'+(st.theme === v ? "on" : "")+'">'+n+'</button>').join("") + '</div>'
+    + '<h3>Ses</h3><div class="segs in" data-set="auto"><button type="button" data-v="0" class="'+(!st.auto ? "on" : "")+'">Elle çal</button><button type="button" data-v="1" class="'+(st.auto ? "on" : "")+'">Kartı otomatik seslendir</button></div>'
+    + '<div class="segs in" data-set="slow"><button type="button" data-v="0" class="'+(!st.slow ? "on" : "")+'">Normal hız</button><button type="button" data-v="1" class="'+(st.slow ? "on" : "")+'">Yavaş</button></div>'
+    + '<h3>İlerleme</h3><p class="note" style="margin-top:0">'+ALL.filter(w => store.known[w.id]).length+' kartı «Biliyorum» olarak işaretlediniz.</p>'
+    + '<div id="reset-area"><button type="button" class="btn red" id="reset">İlerlemeyi sıfırla</button></div>'
+    + '<h3>Hakkında</h3><p class="note" style="margin-top:0">Sesler Piper (fa_IR) ile üretildi. Yazı tipleri: Playfair Display, Vazirmatn.</p>';
+}
+function openSheet(){ $("#sheet-body").innerHTML = sheetHtml(); $("#sheet").hidden = false; }
+function closeSheet(){ $("#sheet").hidden = true; }
+$("#open-set").addEventListener("click", openSheet);
+$("#sheet").addEventListener("click", e => {
+  if (e.target.id === "sheet") return closeSheet();
+  const b = e.target.closest("[data-set] button");
+  if (b){
+    const k = b.parentElement.dataset.set, v = b.dataset.v;
+    st[k] = k === "theme" ? v : v === "1"; save();
+    b.parentElement.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    if (k === "theme") applyTheme();
+    return;
+  }
+  if (e.target.id === "reset"){
+    $("#reset-area").innerHTML = '<div class="confirm">Bütün kartlar «bilinmiyor» olur. Emin misiniz? <button type="button" class="btn red" id="reset-yes">Evet, sıfırla</button><button type="button" class="btn" id="reset-no">Vazgeç</button></div>';
+  } else if (e.target.id === "reset-yes"){
+    store.known = {}; save(); updateStat(); buildDeck(); $("#sheet-body").innerHTML = sheetHtml();
+  } else if (e.target.id === "reset-no"){
+    $("#sheet-body").innerHTML = sheetHtml();
+  }
+});
+
+// Android geri tuşu: önce pencereyi kapat, sonra Kartlar sekmesine dön.
+window.onAndroidBack = function(){
+  if (!$("#sheet").hidden) { closeSheet(); return true; }
+  if (tab !== "cards") { setTab("cards"); return true; }
+  return false;
+};
+
+updateStat();
+buildDeck();
+})();
+</script>
+<!--APP-END-->
+</body>
+</html>
